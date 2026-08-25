@@ -37,21 +37,22 @@ app.use(express.static('public'));
 // Static Program Data
 const program = {
   upper: [
-    { id: "bench_press", name: "BENCH PRESS", zone: "upper", type: "compound", sets: 4, rep_range: [6, 10], rest_seconds: 150, icon: "bench" },
-    { id: "barbell_row", name: "BARBELL ROW", zone: "upper", type: "compound", sets: 4, rep_range: [6, 10], rest_seconds: 150, icon: "row" },
-    { id: "overhead_press", name: "OVERHEAD PRESS", zone: "upper", type: "compound", sets: 3, rep_range: [6, 10], rest_seconds: 150, icon: "ohp" },
-    { id: "lat_pulldown", name: "LAT PULLDOWN", zone: "upper", type: "compound", sets: 3, rep_range: [8, 10], rest_seconds: 120, icon: "pulldown" },
-    { id: "lateral_raise", name: "LATERAL RAISE", zone: "upper", type: "isolation", sets: 3, rep_range: [10, 15], rest_seconds: 90, icon: "lateral" },
-    { id: "bicep_curl", name: "BICEP CURL", zone: "upper", type: "isolation", sets: 2, rep_range: [10, 15], rest_seconds: 90, icon: "curl" },
-    { id: "tricep_pushdown", name: "TRICEP PUSHDOWN", zone: "upper", type: "isolation", sets: 2, rep_range: [10, 15], rest_seconds: 90, icon: "pushdown" }
+    { id: "flat_db_press", name: "Flat DB Press", zone: "upper", type: "compound", sets: 4, rep_range: [6, 10], rest_seconds: 150 },
+    { id: "incline_db_press", name: "Incline DB Press", zone: "upper", type: "compound", sets: 3, rep_range: [6, 10], rest_seconds: 150 },
+    { id: "overhead_press", name: "Overhead Press", zone: "upper", type: "compound", sets: 3, rep_range: [6, 10], rest_seconds: 150 },
+    { id: "barbell_row", name: "Barbell Row", zone: "upper", type: "compound", sets: 4, rep_range: [6, 10], rest_seconds: 150 },
+    { id: "lat_pulldown", name: "Lat Pulldown", zone: "upper", type: "compound", sets: 3, rep_range: [8, 10], rest_seconds: 120 },
+    { id: "lateral_raise", name: "Lateral Raise", zone: "upper", type: "isolation", sets: 3, rep_range: [10, 15], rest_seconds: 75 },
+    { id: "bicep_curl", name: "Bicep Curl", zone: "upper", type: "isolation", sets: 2, rep_range: [10, 15], rest_seconds: 75 },
+    { id: "tricep_pushdown", name: "Tricep Pushdown", zone: "upper", type: "isolation", sets: 2, rep_range: [10, 15], rest_seconds: 75 }
   ],
   lower: [
-    { id: "squat", name: "SQUAT", zone: "lower", type: "compound", sets: 4, rep_range: [6, 10], rest_seconds: 150, icon: "squat" },
-    { id: "romanian_deadlift", name: "RDL", zone: "lower", type: "compound", sets: 3, rep_range: [6, 10], rest_seconds: 150, icon: "rdl" },
-    { id: "leg_press", name: "LEG PRESS", zone: "lower", type: "compound", sets: 3, rep_range: [8, 12], rest_seconds: 120, icon: "legpress" },
-    { id: "leg_extension", name: "LEG EXTENSION", zone: "lower", type: "isolation", sets: 2, rep_range: [10, 15], rest_seconds: 90, icon: "legext" },
-    { id: "calf_raise", name: "CALF RAISE", zone: "lower", type: "isolation", sets: 3, rep_range: [12, 15], rest_seconds: 60, icon: "calf" },
-    { id: "plank", name: "PLANK (SEC)", zone: "lower", type: "core", sets: 3, rep_range: [30, 60], rest_seconds: 60, icon: "plank" }
+    { id: "squat", name: "Squat", zone: "lower", type: "compound", sets: 4, rep_range: [6, 10], rest_seconds: 150 },
+    { id: "romanian_deadlift", name: "Romanian Deadlift", "zone": "lower", type: "compound", sets: 3, rep_range: [6, 10], rest_seconds: 150 },
+    { id: "leg_press", name: "Leg Press", zone: "lower", type: "compound", sets: 3, rep_range: [8, 12], rest_seconds: 120 },
+    { id: "leg_extension", name: "Leg Extension", zone: "lower", type: "isolation", sets: 2, rep_range: [10, 15], rest_seconds: 75 },
+    { id: "calf_raise", name: "Calf Raise", zone: "lower", type: "isolation", sets: 3, rep_range: [12, 15], rest_seconds: 60 },
+    { id: "plank", name: "Plank", zone: "lower", type: "core", sets: 3, rep_range: [30, 60], rest_seconds: 60, unit: "seconds" }
   ]
 };
 
