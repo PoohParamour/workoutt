@@ -269,7 +269,6 @@ window.saveLog = async function(exercise_id, set_number, rest_seconds) {
 // Timer
 function startTimer(seconds) {
   restTimer.classList.remove('hidden');
-  restTimer.scrollIntoView({ behavior: 'smooth' });
   
   let timeLeft = seconds;
   if (state.timerInterval) clearInterval(state.timerInterval);
