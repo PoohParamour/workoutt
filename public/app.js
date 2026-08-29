@@ -131,7 +131,7 @@ async function loadLogsForCurrentView() {
   
   // Load current week logs
   for (const ex of exercises) {
-    const res = await fetch(`/api/logs?week=${state.currentWeek}&exercise_id=${ex.id}`, { headers: API_HEADERS() });
+    const res = await fetch(`/api/logs?week=${state.currentWeek}&day=${state.currentDay}&exercise_id=${ex.id}`, { headers: API_HEADERS() });
     state.logs[ex.id] = await res.json();
   }
   
@@ -139,7 +139,7 @@ async function loadLogsForCurrentView() {
   if (state.currentWeek > 1) {
     state.prevLogs = {};
     for (const ex of exercises) {
-      const res = await fetch(`/api/logs?week=${state.currentWeek - 1}&exercise_id=${ex.id}`, { headers: API_HEADERS() });
+      const res = await fetch(`/api/logs?week=${state.currentWeek - 1}&day=${state.currentDay}&exercise_id=${ex.id}`, { headers: API_HEADERS() });
       state.prevLogs[ex.id] = await res.json();
     }
   }

@@ -81,11 +81,21 @@ app.get('/api/program', (req, res) => {
 });
 
 app.get('/api/logs', requireAuth, (req, res) => {
-  const { week, exercise_id } = req.query;
+  const { week, day, exercise_id } = req.query;
   if (!week || !exercise_id) {
     return res.status(400).json({ error: 'Missing week or exercise_id' });
   }
-  const logs = db.prepare('SELECT * FROM logs WHERE week = ? AND exercise_id = ? ORDER BY set_number').all(week, exercise_id);
+  
+  let query = 'SELECT * FROM logs WHERE week = ? AND exercise_id = ?';
+  let params = [week, exercise_id];
+  
+  if (day) {
+    query += ' AND day = ?';
+    params.push(day);
+  }
+  query += ' ORDER BY set_number';
+  
+  const logs = db.prepare(query).all(...params);
   res.json(logs);
 });
 
