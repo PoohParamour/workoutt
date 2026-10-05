@@ -2,12 +2,29 @@
 let state = {
   token: localStorage.getItem('kinetic_token'),
   program: null,
-  currentWeek: 1,
+  currentMonth: parseInt(localStorage.getItem('kinetic_month')) || 1,
+  currentWeekInMonth: parseInt(localStorage.getItem('kinetic_week')) || 1,
   currentDay: 'tue',
   currentZone: 'upper',
   logs: [],
-  timerInterval: null
+  timerInterval: null,
+  timerHideTimeout: null,
+  wakeLock: null
 };
+
+const WEEKS_PER_MONTH = 4;
+const TOTAL_MONTHS = 12;
+
+// Weeks are stored as an absolute number in the DB: month 2 week 1 = week 5
+Object.defineProperty(state, 'currentWeek', {
+  get() { return (this.currentMonth - 1) * WEEKS_PER_MONTH + this.currentWeekInMonth; }
+});
+
+function weekLabel(absWeek) {
+  const month = Math.ceil(absWeek / WEEKS_PER_MONTH);
+  const week = absWeek - (month - 1) * WEEKS_PER_MONTH;
+  return `M${month} WK${week}`;
+}
 
 const API_HEADERS = () => ({
   'Content-Type': 'application/json',
@@ -94,13 +111,44 @@ document.querySelectorAll('.nav-tab').forEach(btn => {
   });
 });
 
+const monthSelector = document.getElementById('month-selector');
+for (let m = 1; m <= TOTAL_MONTHS; m++) {
+  const btn = document.createElement('button');
+  btn.className = 'month-btn kinetic-btn h-14 px-8 border-2 border-border font-bold uppercase tracking-tighter text-xl shrink-0';
+  btn.dataset.month = m;
+  btn.textContent = `MONTH ${m}`;
+  monthSelector.appendChild(btn);
+}
+
+function highlightSelectors() {
+  document.querySelectorAll('.month-btn').forEach(b => {
+    b.classList.toggle('bg-accent', parseInt(b.dataset.month) === state.currentMonth);
+    b.classList.toggle('text-accent-foreground', parseInt(b.dataset.month) === state.currentMonth);
+  });
+  document.querySelectorAll('.week-btn').forEach(b => {
+    b.classList.toggle('bg-accent', parseInt(b.dataset.week) === state.currentWeekInMonth);
+    b.classList.toggle('text-accent-foreground', parseInt(b.dataset.week) === state.currentWeekInMonth);
+  });
+}
+highlightSelectors();
+document.querySelector(`.month-btn[data-month="${state.currentMonth}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+
+document.querySelectorAll('.month-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    state.currentMonth = parseInt(e.target.dataset.month);
+    state.currentWeekInMonth = 1;
+    localStorage.setItem('kinetic_month', state.currentMonth);
+    localStorage.setItem('kinetic_week', state.currentWeekInMonth);
+    highlightSelectors();
+    renderDay();
+  });
+});
+
 document.querySelectorAll('.week-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
-    document.querySelectorAll('.week-btn').forEach(b => {
-      b.classList.remove('bg-accent', 'text-accent-foreground');
-    });
-    e.target.classList.add('bg-accent', 'text-accent-foreground');
-    state.currentWeek = parseInt(e.target.dataset.week);
+    state.currentWeekInMonth = parseInt(e.target.dataset.week);
+    localStorage.setItem('kinetic_week', state.currentWeekInMonth);
+    highlightSelectors();
     renderDay();
   });
 });
@@ -267,31 +315,74 @@ window.saveLog = async function(exercise_id, set_number, rest_seconds) {
 }
 
 // Timer
+// Counts against an absolute end time so it stays correct when the tab is
+// backgrounded or the screen is off (browsers pause/throttle setInterval then).
 function startTimer(seconds) {
-  restTimer.classList.remove('hidden');
-  
-  let timeLeft = seconds;
+  const endTime = Date.now() + seconds * 1000;
+  localStorage.setItem('kinetic_timer_end', endTime);
+  runTimer(endTime);
+}
+
+function runTimer(endTime) {
   if (state.timerInterval) clearInterval(state.timerInterval);
-  
-  const updateDisplay = () => {
-    const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-    const s = (timeLeft % 60).toString().padStart(2, '0');
-    timerDisplay.textContent = `${m}:${s}`;
-  };
-  
-  updateDisplay();
-  
-  state.timerInterval = setInterval(() => {
-    timeLeft--;
-    updateDisplay();
-    if (timeLeft <= 0) {
-      clearInterval(state.timerInterval);
-      timerDisplay.textContent = 'GO';
-      setTimeout(() => {
-        restTimer.classList.add('hidden');
-      }, 5000);
-    }
-  }, 1000);
+  if (state.timerHideTimeout) clearTimeout(state.timerHideTimeout);
+  state.timerEnd = endTime;
+  restTimer.classList.remove('hidden');
+  requestWakeLock();
+  tickTimer();
+  state.timerInterval = setInterval(tickTimer, 250);
+}
+
+function tickTimer() {
+  const timeLeft = Math.max(0, Math.ceil((state.timerEnd - Date.now()) / 1000));
+  const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+  const s = (timeLeft % 60).toString().padStart(2, '0');
+  timerDisplay.textContent = `${m}:${s}`;
+
+  if (timeLeft <= 0) {
+    clearInterval(state.timerInterval);
+    state.timerInterval = null;
+    localStorage.removeItem('kinetic_timer_end');
+    timerDisplay.textContent = 'GO';
+    if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+    releaseWakeLock();
+    state.timerHideTimeout = setTimeout(() => {
+      restTimer.classList.add('hidden');
+    }, 5000);
+  }
+}
+
+// Keep the screen on during rest so the countdown stays visible
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator) || state.wakeLock) return;
+  try {
+    state.wakeLock = await navigator.wakeLock.request('screen');
+    state.wakeLock.addEventListener('release', () => { state.wakeLock = null; });
+  } catch (err) {
+    // Not allowed (e.g. page hidden or low battery) - timer still works without it
+  }
+}
+
+function releaseWakeLock() {
+  if (state.wakeLock) {
+    state.wakeLock.release();
+    state.wakeLock = null;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !state.timerInterval) return;
+  tickTimer();
+  // The browser drops the wake lock when the page is hidden; take it again
+  if (state.timerInterval) requestWakeLock();
+});
+
+// Resume a rest timer that was running before a reload
+const savedTimerEnd = parseInt(localStorage.getItem('kinetic_timer_end'));
+if (savedTimerEnd && savedTimerEnd > Date.now()) {
+  runTimer(savedTimerEnd);
+} else {
+  localStorage.removeItem('kinetic_timer_end');
 }
 
 // Progress View
@@ -320,11 +411,17 @@ async function loadProgressChart(exercise_id) {
   const res = await fetch(`/api/progress/${exercise_id}`, { headers: API_HEADERS() });
   const data = await res.json();
   
-  const labels = [1, 2, 3, 4].map(w => `WK ${w}`);
-  const weightData = [null, null, null, null];
-  
+  // Show every week up to the last logged one (at least the first month)
+  const lastWeek = Math.max(WEEKS_PER_MONTH, ...data.map(d => d.week));
+  const labels = [];
+  const weightData = [];
+  for (let w = 1; w <= lastWeek; w++) {
+    labels.push(weekLabel(w));
+    weightData.push(null);
+  }
+
   data.forEach(d => {
-    if (d.week >= 1 && d.week <= 4) {
+    if (d.week >= 1 && d.week <= lastWeek) {
       weightData[d.week - 1] = d.max_weight;
     }
   });
@@ -345,7 +442,8 @@ async function loadProgressChart(exercise_id) {
         pointBackgroundColor: '#09090B',
         pointBorderColor: '#DFE104',
         pointBorderWidth: 4,
-        tension: 0
+        tension: 0,
+        spanGaps: true
       }]
     },
     options: {
