@@ -99,6 +99,36 @@ app.get('/api/logs', requireAuth, (req, res) => {
   res.json(logs);
 });
 
+// Most recent session of each exercise before the given week/day
+// (Tue -> Thu share upper exercises, Wed -> Sat share lower ones)
+const DAY_ORDER_SQL = "CASE day WHEN 'tue' THEN 1 WHEN 'wed' THEN 2 WHEN 'thu' THEN 3 WHEN 'sat' THEN 4 END";
+const DAY_ORDER = { tue: 1, wed: 2, thu: 3, sat: 4 };
+
+app.get('/api/previous', requireAuth, (req, res) => {
+  const { week, day, exercise_ids } = req.query;
+  if (!week || !DAY_ORDER[day] || !exercise_ids) {
+    return res.status(400).json({ error: 'Missing week, day or exercise_ids' });
+  }
+
+  const currentKey = parseInt(week) * 10 + DAY_ORDER[day];
+  const findSession = db.prepare(`
+    SELECT week, day FROM logs
+    WHERE exercise_id = ? AND week * 10 + ${DAY_ORDER_SQL} < ?
+    ORDER BY week * 10 + ${DAY_ORDER_SQL} DESC
+    LIMIT 1
+  `);
+  const getSets = db.prepare('SELECT * FROM logs WHERE week = ? AND day = ? AND exercise_id = ? ORDER BY set_number');
+
+  const result = {};
+  for (const id of exercise_ids.split(',')) {
+    const session = findSession.get(id, currentKey);
+    if (session) {
+      result[id] = { week: session.week, day: session.day, sets: getSets.all(session.week, session.day, id) };
+    }
+  }
+  res.json(result);
+});
+
 app.post('/api/logs', requireAuth, (req, res) => {
   const { week, day, exercise_id, set_number, weight_lbs, reps } = req.body;
   

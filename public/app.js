@@ -183,6 +183,11 @@ async function loadLogsForCurrentView() {
     state.logs[ex.id] = await res.json();
   }
   
+  // Last session of each exercise before today (for the LAST hints)
+  const ids = exercises.map(ex => ex.id).join(',');
+  const prevRes = await fetch(`/api/previous?week=${state.currentWeek}&day=${state.currentDay}&exercise_ids=${ids}`, { headers: API_HEADERS() });
+  state.lastSession = prevRes.ok ? await prevRes.json() : {};
+  
   // Load previous week logs for progression logic (if not week 1)
   if (state.currentWeek > 1) {
     state.prevLogs = {};
@@ -219,23 +224,36 @@ async function renderDay() {
       }
     }
 
+    const last = state.lastSession[ex.id];
+    const lastHeader = last
+      ? `<div class="mt-4 text-sm md:text-base font-bold uppercase tracking-widest text-accent group-hover:text-accent-foreground transition-colors duration-300">LAST: ${weekLabel(last.week)} · ${last.day.toUpperCase()}</div>`
+      : '';
+    const copyLastBtn = last
+      ? `<button onclick="copyLastWeights('${ex.id}')" class="kinetic-btn h-12 px-6 border-2 border-border font-bold uppercase tracking-tighter text-base group-hover:border-accent-foreground group-hover:text-accent-foreground self-start md:self-auto shrink-0">USE LAST LBS</button>`
+      : '';
+
     const card = document.createElement('div');
     card.className = 'border-2 border-border p-8 md:p-12 bg-background hover:bg-accent hover:border-accent transition-colors duration-300 relative overflow-hidden group kinetic-card-container';
     
     let setsHtml = '';
     for (let i = 1; i <= ex.sets; i++) {
       const log = logs.find(l => l.set_number === i) || { weight_lbs: '', reps: '' };
+      const lastSet = last && last.sets.find(l => l.set_number === i);
+      const lastText = lastSet ? `LAST ${lastSet.weight_lbs} × ${lastSet.reps}` : '';
       setsHtml += `
         <div class="flex flex-col md:flex-row gap-4 items-start md:items-end mb-8 md:mb-4 relative z-10 transition-colors duration-300 border-b border-border md:border-0 pb-6 md:pb-0">
-          <div class="w-full md:w-12 text-2xl font-bold text-muted-foreground group-hover:text-accent-foreground transition-colors duration-300">S${i}</div>
+          <div class="w-full md:w-28 flex md:flex-col items-baseline gap-3 md:gap-1">
+            <div class="text-2xl font-bold text-muted-foreground group-hover:text-accent-foreground transition-colors duration-300">S${i}</div>
+            <div class="text-sm font-bold uppercase tracking-wider text-accent group-hover:text-accent-foreground transition-colors duration-300">${lastText}</div>
+          </div>
           <div class="flex w-full md:flex-1 gap-4">
             <div class="flex-1">
               <label class="block text-xs uppercase tracking-widest text-muted-foreground mb-1 group-hover:text-accent-foreground transition-colors duration-300">LBS</label>
-              <input type="number" step="0.5" data-ex="${ex.id}" data-set="${i}" data-type="weight" value="${log.weight_lbs}" class="w-full h-14 bg-transparent border-b-2 border-border text-3xl font-bold px-2 focus:outline-none focus:border-accent group-hover:border-accent-foreground group-hover:text-accent-foreground placeholder:text-muted transition-colors duration-300">
+              <input type="number" step="0.5" data-ex="${ex.id}" data-set="${i}" data-type="weight" value="${log.weight_lbs}" placeholder="${lastSet ? lastSet.weight_lbs : ''}" class="w-full h-14 bg-transparent border-b-2 border-border text-3xl font-bold px-2 focus:outline-none focus:border-accent group-hover:border-accent-foreground group-hover:text-accent-foreground placeholder:text-muted-foreground/30 transition-colors duration-300">
             </div>
             <div class="flex-1">
               <label class="block text-xs uppercase tracking-widest text-muted-foreground mb-1 group-hover:text-accent-foreground transition-colors duration-300">REPS</label>
-              <input type="number" data-ex="${ex.id}" data-set="${i}" data-type="reps" value="${log.reps}" class="w-full h-14 bg-transparent border-b-2 border-border text-3xl font-bold px-2 focus:outline-none focus:border-accent group-hover:border-accent-foreground group-hover:text-accent-foreground placeholder:text-muted transition-colors duration-300">
+              <input type="number" data-ex="${ex.id}" data-set="${i}" data-type="reps" value="${log.reps}" placeholder="${lastSet ? lastSet.reps : ''}" class="w-full h-14 bg-transparent border-b-2 border-border text-3xl font-bold px-2 focus:outline-none focus:border-accent group-hover:border-accent-foreground group-hover:text-accent-foreground placeholder:text-muted-foreground/30 transition-colors duration-300">
             </div>
           </div>
           <button onclick="saveLog('${ex.id}', ${i}, ${ex.rest_seconds})" class="kinetic-btn w-full md:w-auto h-14 px-8 bg-border text-foreground font-bold hover:bg-accent hover:text-black uppercase tracking-tighter text-xl">LOG</button>
@@ -255,14 +273,26 @@ async function renderDay() {
             <span class="text-border group-hover:text-accent-foreground hidden md:inline">•</span>
             <span>${ex.type}</span>
           </div>
+          ${lastHeader}
           ${progressionBadge}
         </div>
+        ${copyLastBtn}
       </div>
       <div class="space-y-4 mt-8">
         ${setsHtml}
       </div>
     `;
     exercisesContainer.appendChild(card);
+  });
+}
+
+// Fill empty LBS inputs with the weights from the last session
+window.copyLastWeights = function(exercise_id) {
+  const last = state.lastSession[exercise_id];
+  if (!last) return;
+  last.sets.forEach(l => {
+    const input = document.querySelector(`input[data-ex="${exercise_id}"][data-set="${l.set_number}"][data-type="weight"]`);
+    if (input && input.value === '') input.value = l.weight_lbs;
   });
 }
 
